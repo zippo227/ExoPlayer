@@ -376,7 +376,6 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private int staleManifestReloadAttempt;
   private long expiredManifestPublishTimeUs;
-  private boolean dynamicMediaPresentationEnded;
 
   private int firstPeriodId;
 
@@ -679,7 +678,6 @@ public final class DashMediaSource extends BaseMediaSource {
     elapsedRealtimeOffsetMs = 0;
     staleManifestReloadAttempt = 0;
     expiredManifestPublishTimeUs = C.TIME_UNSET;
-    dynamicMediaPresentationEnded = false;
     firstPeriodId = 0;
     periodsById.clear();
   }
@@ -689,10 +687,6 @@ public final class DashMediaSource extends BaseMediaSource {
   /* package */ void onDashManifestRefreshRequested() {
     handler.removeCallbacks(simulateManifestRefreshRunnable);
     startLoadingManifest();
-  }
-
-  /* package */ void onDashLiveMediaPresentationEndSignalEncountered() {
-    this.dynamicMediaPresentationEnded = true;
   }
 
   /* package */ void onDashManifestPublishTimeExpired(long expiredManifestPublishTimeUs) {
@@ -734,9 +728,8 @@ public final class DashMediaSource extends BaseMediaSource {
         // behind.
         Log.w(TAG, "Loaded out of sync manifest");
         isManifestStale = true;
-      } else if (dynamicMediaPresentationEnded
-          || (expiredManifestPublishTimeUs != C.TIME_UNSET
-              && newManifest.publishTimeMs * 1000 <= expiredManifestPublishTimeUs)) {
+      } else if (expiredManifestPublishTimeUs != C.TIME_UNSET
+          && newManifest.publishTimeMs * 1000 <= expiredManifestPublishTimeUs) {
         // If we receive a dynamic manifest that's older than expected (i.e. its publish time has
         // expired, or it's dynamic and we know the presentation has ended), then this manifest is
         // stale.
@@ -744,8 +737,6 @@ public final class DashMediaSource extends BaseMediaSource {
             TAG,
             "Loaded stale dynamic manifest: "
                 + newManifest.publishTimeMs
-                + ", "
-                + dynamicMediaPresentationEnded
                 + ", "
                 + expiredManifestPublishTimeUs);
         isManifestStale = true;
@@ -762,7 +753,6 @@ public final class DashMediaSource extends BaseMediaSource {
       }
       staleManifestReloadAttempt = 0;
     }
-
 
     manifest = newManifest;
     manifestLoadPending &= manifest.dynamic;
@@ -1175,7 +1165,10 @@ public final class DashMediaSource extends BaseMediaSource {
           presentationStartTimeMs,
           windowStartTimeMs,
           /* isSeekable= */ true,
-          manifest.dynamic,
+          // TODO: Split so that we can disambiguate between dynamic cases where media may be
+          // appended, and those where media can only be removed. The former should not prevent
+          // transition to the ended state.
+          manifest.dynamic && manifest.minUpdatePeriodMs != C.TIME_UNSET,
           windowDefaultStartPositionUs,
           windowDurationUs,
           /* firstPeriodIndex= */ 0,
@@ -1252,11 +1245,6 @@ public final class DashMediaSource extends BaseMediaSource {
     @Override
     public void onDashManifestPublishTimeExpired(long expiredManifestPublishTimeUs) {
       DashMediaSource.this.onDashManifestPublishTimeExpired(expiredManifestPublishTimeUs);
-    }
-
-    @Override
-    public void onDashLiveMediaPresentationEndSignalEncountered() {
-      DashMediaSource.this.onDashLiveMediaPresentationEndSignalEncountered();
     }
   }
 
