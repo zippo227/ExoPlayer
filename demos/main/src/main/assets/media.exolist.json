@@ -135,7 +135,7 @@
       },
       {
         "name": "WV: Andy Martin 3 DRM Today",
-        "uri": "http://cmwwowza2.moonlightgames.net:1935/vods3/_definst_/mp4:amazons3/cmw-wowza/sample.mp4/manifest.mpd",
+        "uri": "http://cmwwowza2.moonlightgames.net:1935/vods3drmtoday/_definst_/mp4:amazons3/cmw-wowza/sample.mp4/manifest.mpd",
         "drm_scheme": "widevine",
         "drm_license_url": "https://widevine-dash.ezdrm.com/proxy?pX=57FF"
       },
