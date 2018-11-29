@@ -137,7 +137,14 @@
         "name": "WV: Andy Martin 3 DRM Today",
         "uri": "http://cmwwowza2.moonlightgames.net:1935/vods3drmtoday/_definst_/mp4:amazons3/cmw-wowza/sample.mp4/manifest.mpd",
         "drm_scheme": "widevine",
-        "drm_license_url": "https://widevine-dash.ezdrm.com/proxy?pX=57FF"
+        "drm_license_url": "https://lic.staging.drmtoday.com/license-proxy-widevine/cenc/",
+        "drm_key_request_properties": {
+          "drmTodayUrl": "https://lic.staging.drmtoday.com/license-proxy-widevine/cenc/",
+          "merchant": "cinemoi",
+          "userid": "rental1",
+          "sessionId": "a1d1f0p1",
+          "assetId": "vods3drmtoday_amazons3_cmw-wowza_sample.mp4"
+        }
       },
       {
         "name": "WV: Clear SD & HD (MP4,H264)",

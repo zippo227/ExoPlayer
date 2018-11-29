@@ -18,6 +18,9 @@ package com.google.android.exoplayer2.drm;
 import android.annotation.TargetApi;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
+
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.drm.ExoMediaDrm.KeyRequest;
 import com.google.android.exoplayer2.drm.ExoMediaDrm.ProvisionRequest;
@@ -27,11 +30,23 @@ import com.google.android.exoplayer2.upstream.HttpDataSource;
 import com.google.android.exoplayer2.upstream.HttpDataSource.InvalidResponseCodeException;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
+
+import static com.google.android.exoplayer2.util.Util.toByteArray;
 
 /**
  * A {@link MediaDrmCallback} that makes requests using {@link HttpDataSource} instances.
@@ -130,9 +145,72 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
     }
     // Add additional request properties.
     synchronized (keyRequestProperties) {
+      keyRequestProperties.put("logRequestId", generateRequestId());
       requestProperties.putAll(keyRequestProperties);
     }
-    return executePost(dataSourceFactory, url, request.getData(), requestProperties);
+//    return executePost(dataSourceFactory, url, request.getData(), requestProperties);
+
+    final byte[] bytes;
+    try {
+      bytes = executePost(url, request.getData(), requestProperties);
+    } catch (FileNotFoundException e) {
+      throw new IOException("License not found");
+    } catch (IOException e) {
+      throw new IOException("Error during license acquisition", e);
+    }
+
+    try {
+      JSONObject jsonObject = new JSONObject(new String(bytes));
+      return Base64.decode(jsonObject.getString("license"), Base64.DEFAULT);
+    } catch (JSONException e) {
+      throw new RuntimeException("Error while parsing response", e);
+    }
+  }
+
+  private static String generateRequestId() {
+    byte[] byteArray = new byte[16];
+    new Random().nextBytes(byteArray);
+    StringBuilder sb = new StringBuilder(byteArray.length * 2);
+    for (byte b : byteArray) {
+      sb.append(String.format("%02x", b & 0xff));
+    }
+    return sb.toString();
+  }
+
+  public static byte[] executePost(String url, byte[] data, Map<String, String> requestProperties)
+          throws IOException {
+    HttpURLConnection urlConnection = null;
+    try {
+      urlConnection = (HttpURLConnection) new URL(url).openConnection();
+      urlConnection.setRequestMethod("POST");
+      urlConnection.setDoOutput(data != null);
+      urlConnection.setDoInput(true);
+      if (requestProperties != null) {
+        for (Map.Entry<String, String> requestProperty : requestProperties.entrySet()) {
+          urlConnection.setRequestProperty(requestProperty.getKey(), requestProperty.getValue());
+        }
+      }
+      // Write the request body, if there is one.
+      if (data != null) {
+        OutputStream out = urlConnection.getOutputStream();
+        try {
+          out.write(data);
+        } finally {
+          out.close();
+        }
+      }
+      // Read and return the response body.
+      InputStream inputStream = urlConnection.getInputStream();
+      try {
+        return toByteArray(inputStream);
+      } finally {
+        Util.closeQuietly(inputStream);
+      }
+    } finally {
+      if (urlConnection != null) {
+        urlConnection.disconnect();
+      }
+    }
   }
 
   private static byte[] executePost(HttpDataSource.Factory dataSourceFactory, String url,

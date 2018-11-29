@@ -41,10 +41,12 @@ import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.PlaybackPreparer;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.drm.CastlabsWidevineDrmCallback;
 import com.google.android.exoplayer2.drm.DefaultDrmSessionManager;
 import com.google.android.exoplayer2.drm.FrameworkMediaCrypto;
 import com.google.android.exoplayer2.drm.FrameworkMediaDrm;
 import com.google.android.exoplayer2.drm.HttpMediaDrmCallback;
+import com.google.android.exoplayer2.drm.MediaDrmCallback;
 import com.google.android.exoplayer2.drm.UnsupportedDrmException;
 import com.google.android.exoplayer2.mediacodec.MediaCodecRenderer.DecoderInitializationException;
 import com.google.android.exoplayer2.mediacodec.MediaCodecUtil.DecoderQueryException;
@@ -510,14 +512,37 @@ public class PlayerActivity extends Activity
       throws UnsupportedDrmException {
     HttpDataSource.Factory licenseDataSourceFactory =
         ((DemoApplication) getApplication()).buildHttpDataSourceFactory();
-    HttpMediaDrmCallback drmCallback =
+
+    boolean castlabs = false;
+
+    MediaDrmCallback drmCallback;
+
+    if(!castlabs)
+    {
+      HttpMediaDrmCallback httpDrmCallback =
         new HttpMediaDrmCallback(licenseUrl, licenseDataSourceFactory);
-    if (keyRequestPropertiesArray != null) {
-      for (int i = 0; i < keyRequestPropertiesArray.length - 1; i += 2) {
-        drmCallback.setKeyRequestProperty(keyRequestPropertiesArray[i],
-            keyRequestPropertiesArray[i + 1]);
+
+      if (keyRequestPropertiesArray != null) {
+        for (int i = 0; i < keyRequestPropertiesArray.length - 1; i += 2) {
+          httpDrmCallback.setKeyRequestProperty(keyRequestPropertiesArray[i],
+              keyRequestPropertiesArray[i + 1]);
+        }
       }
+
+      drmCallback = httpDrmCallback;
     }
+    else
+    {
+      drmCallback = new CastlabsWidevineDrmCallback(
+              "https://lic.staging.drmtoday.com/license-proxy-widevine/cenc/",
+              "cinemoi",
+              "vods3drmtoday_amazons3_cmw-wowza_sample.mp4",
+              null,
+              "rental1",
+              "a1d1f0p1",
+              null);
+    }
+
     releaseMediaDrm();
     mediaDrm = FrameworkMediaDrm.newInstance(uuid);
     return new DefaultDrmSessionManager<>(uuid, mediaDrm, drmCallback, null, multiSession);
